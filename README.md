@@ -6,7 +6,7 @@
 [![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)](https://streamlit.io/)
 [![LangChain](https://img.shields.io/badge/Agent-LangChain-green.svg)](https://langchain.com/)
 
-A hybrid AI-powered intelligence system that combines fast Machine Learning classification with LLM reasoning to collect, analyze, and map security and safety incidents from global news feeds.
+News Intelligence is a highly scalable hybrid AI system combining vectorized ML for high-throughput stream filtering and LLM reasoning (Groq/Ollama) for contextual analysis. It auto-discovers RSS feeds, extracts structured event insights, geocodes addresses automatically, and renders interactive maps for real-time security intelligence.
 
 ```python
 # Fast batch classification is fully vectorized
