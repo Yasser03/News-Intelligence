@@ -42,13 +42,22 @@ df_classified = classifier.predict(news_df)
 pip install -r requirements.txt
 ```
 
-### 2. Model Setup
+### 2. Environment Configuration
+To use the Groq cloud backend, create a `.env` file in the root directory and add your API key:
+
+```env
+GROQ_API_KEY="your_api_key_here"
+```
+
+You can generate a new Groq API key from the [Groq Console](https://console.groq.com/keys).
+
+### 3. Model Setup
 Ensure your trained model weights exist in the `models/` directory:
 - `Logistic Regression_62k.pkl`
 - `label_encoder_transformer.pkl`
 - `word_vectorizer.pkl`
 
-### 3. Launch the Dashboard
+### 4. Launch the Dashboard
 Run the main Streamlit application:
 
 ```bash
