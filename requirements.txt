@@ -19,6 +19,7 @@ folium>=0.14.0
 geopy>=2.4.0
 geonamescache>=1.5.0
 geotext>=0.4.0
+flashtext>=2.7
 
 # LLM Integration
 langchain>=0.1.0
