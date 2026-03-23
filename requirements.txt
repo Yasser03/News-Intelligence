@@ -1,0 +1,34 @@
+# Core dependencies
+pandas>=1.5.0
+numpy>=1.23.0
+scikit-learn>=1.2.0
+streamlit>=1.28.0
+
+# ML & NLP
+langdetect>=1.0.9
+cleantext>=1.1.0
+
+# Web & RSS
+feedparser>=6.0.0
+requests>=2.28.0
+trafilatura>=1.6.0
+beautifulsoup4>=4.12.0
+
+# Geospatial
+folium>=0.14.0
+geopy>=2.4.0
+geonamescache>=1.5.0
+geotext>=0.4.0
+
+# LLM Integration
+langchain>=0.1.0
+langchain-groq>=0.1.0
+langchain-ollama>=0.1.0
+
+# Timezone
+pytz>=2023.0
+dateparser>=1.1.0
+
+# Utilities
+python-dotenv>=1.0.0
+tenacity>=8.2.0
