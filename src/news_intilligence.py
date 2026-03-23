@@ -49,6 +49,11 @@ import streamlit.components.v1 as components
 from geotext import GeoText
 from flashtext import KeywordProcessor
 from geopy.geocoders import Nominatim
+
+try:
+    from src.news_binary_classifier import NewsBinaryClassifier
+except ImportError:
+    from news_binary_classifier import NewsBinaryClassifier
 from geopy.extra.rate_limiter import RateLimiter as GeoRateLimiter  # Renamed import to avoid name conflict
 
 # ==============================
@@ -841,14 +846,16 @@ def main():
 
     # ─── 2. Pipeline settings ───────────────────────────────────────────────
     st.subheader("2. Pipeline Settings")
-    colA, colB, colC, colD = st.columns(4)
+    colA, colB, colC, colD, colE = st.columns(5)
     with colA:
         max_items = st.number_input("Items / Source", 1, 500, 10)
     with colB:
         max_total = st.number_input("Total Cap", 1, 500, 50)
     with colC:
-        do_keyword = st.checkbox("Keyword Pre-filter", value=True)
+        do_keyword = st.checkbox("Keyword Pre-filter", value=False)
     with colD:
+        do_ml_filter = st.checkbox("ML Binary Filter", value=True)
+    with colE:
         extract_workers = st.number_input(
             "Extract Workers", 1, 20, Config.DEFAULT_EXTRACT_WORKERS
         )
@@ -905,6 +912,34 @@ def main():
         with st.spinner(f"Extracting articles ({extract_workers} workers)..."):
             articles = ArticleExtractor.extract_parallel(links, int(extract_workers))
         st.write(f"Extracted articles: **{len(articles)}**")
+
+        # ── Optional Step: ML Classification Filter ───────────────────────
+        if do_ml_filter and articles:
+            with st.spinner("Classifying with ML Binary Filter..."):
+                try:
+                    df_all = pd.DataFrame(articles)
+                    if not df_all.empty:
+                        # Ensure required columns for NewsBinaryClassifier
+                        if 'description' not in df_all.columns:
+                            df_all['description'] = ""
+                        if 'article' not in df_all.columns and 'text' in df_all.columns:
+                            df_all['article'] = df_all['text']
+                            
+                        # Load classifier and predict
+                        classifier = NewsBinaryClassifier(model_path='models/')
+                        df_classified = classifier.predict(df_all)
+                        
+                        # Filter to 'incident' and extract original indices
+                        df_filtered = df_classified[df_classified['prediction'] == 'incident']
+                        valid_indices = df_filtered.index.tolist()
+                        articles = [articles[i] for i in valid_indices]
+                except Exception as e:
+                    st.warning(f"ML Classifier error: {e}")
+            st.write(f"Articles after ML Filter: **{len(articles)}**")
+
+        if not articles:
+            st.warning("No incidents found.")
+            st.stop()
 
         # ── Step 3: Unified Analysis (Single LLM call per article) ─────────
         with st.spinner(f"Analyzing incidents (unified pipeline, {llm_workers} workers)..."):
