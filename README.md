@@ -61,7 +61,7 @@ Ensure your trained model weights exist in the `models/` directory:
 Run the main Streamlit application:
 
 ```bash
-streamlit run src/news_intilligence.py
+python -m streamlit run src/news_intelligence.py
 ```
 
 ---

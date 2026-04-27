@@ -357,7 +357,7 @@ class IncidentVisualizer:
         site = (landmark[0] if landmark else None) or (street_match.group(0) if street_match else None)
         
         # Build geocode query
-        query_parts = [p for p in [site, city, country_hint] if p]
+        query_parts = [str(p) for p in [site, city, country_hint] if p and str(p).strip().lower() != 'nan']
         query = ", ".join(query_parts) if query_parts else None
         
         lat, lon = None, None
@@ -920,10 +920,17 @@ def main():
                     df_all = pd.DataFrame(articles)
                     if not df_all.empty:
                         # Ensure required columns for NewsBinaryClassifier
+                        if 'title' not in df_all.columns:
+                            df_all['title'] = ""
                         if 'description' not in df_all.columns:
                             df_all['description'] = ""
                         if 'article' not in df_all.columns and 'text' in df_all.columns:
                             df_all['article'] = df_all['text']
+                        
+                        # Sanitize text columns to avoid "No text provided" errors
+                        for col in ['title', 'description', 'article']:
+                            if col in df_all.columns:
+                                df_all[col] = df_all[col].fillna("").astype(str)
                             
                         # Load classifier and predict
                         classifier = NewsBinaryClassifier(model_path='models/')
