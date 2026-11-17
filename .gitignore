@@ -19,3 +19,4 @@ build/
 data/*.db
 data/*.db-*
 .pytest_cache/
+data/live_scan*
