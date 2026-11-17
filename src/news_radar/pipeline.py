@@ -38,15 +38,17 @@ class RadarPipeline:
         config: ScanConfig,
         store: Optional[RadarStore] = None,
         llm: Optional[LLMClient] = None,
+        triage_llm: Optional[LLMClient] = None,
         discovery: Optional[NewsDiscovery] = None,
         geocoder: Optional[Geocoder] = None,
     ):
         self.cfg = config
         self.store = store or RadarStore(config.db_path)
         self.llm = llm or build_llm(config.llm)
+        self.triage_llm = triage_llm or (llm if llm is not None else build_llm(config.llm, triage=True))
         self.discovery = discovery or NewsDiscovery(config)
         self.geocoder = geocoder or Geocoder(config.geo, cache=self.store)
-        self.analyzer = IncidentAnalyzer(self.llm, config.llm, cache=self.store)
+        self.analyzer = IncidentAnalyzer(self.llm, config.llm, cache=self.store, triage_llm=self.triage_llm)
 
     def run(self, progress: ProgressFn = _noop) -> ScanResult:
         t0 = time.time()

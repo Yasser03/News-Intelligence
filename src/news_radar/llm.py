@@ -87,7 +87,7 @@ class TokenBudget:
 
 
 def estimate_tokens(text: str) -> int:
-    return max(200, len(text) // 4 + 300)  # prompt + expected completion
+    return max(300, len(text) // 4 + 600)  # prompt + expected completion (incl. reasoning)
 
 
 def _is_rate_limit(err: Exception) -> bool:
@@ -102,9 +102,11 @@ def _is_rate_limit(err: Exception) -> bool:
 class LangChainLLM:
     """Groq or Ollama chat model in JSON mode with retry/backoff and a TPM budget."""
 
-    def __init__(self, cfg: LLMConfig, budget: Optional[TokenBudget] = None):
+    def __init__(self, cfg: LLMConfig, model: Optional[str] = None, budget: Optional[TokenBudget] = None):
         self.cfg = cfg
-        self.model_name = f"{cfg.backend}:{cfg.model_name}"
+        self.model = model or cfg.model_name
+        self.model_name = f"{cfg.backend}:{self.model}"
+        # One budget per client: Groq enforces tokens-per-minute separately for each model.
         self.budget = budget or (TokenBudget(cfg.tpm_limit) if cfg.backend == "groq" else None)
         self._llm = self._build()
 
@@ -112,18 +114,22 @@ class LangChainLLM:
         if self.cfg.backend == "ollama":
             from langchain_ollama import ChatOllama
 
-            kwargs = dict(model=self.cfg.ollama_model, temperature=self.cfg.temperature, format="json")
+            kwargs = dict(model=self.model, temperature=self.cfg.temperature, format="json")
             if self.cfg.ollama_base_url:
                 kwargs["base_url"] = self.cfg.ollama_base_url
             return ChatOllama(**kwargs)
         if self.cfg.backend == "groq":
             from langchain_groq import ChatGroq
 
+            extra = {}
+            if self.model.startswith("openai/gpt-oss") and self.cfg.reasoning_effort:
+                extra["reasoning_effort"] = self.cfg.reasoning_effort
             return ChatGroq(
-                model=self.cfg.groq_model,
+                model=self.model,
                 temperature=self.cfg.temperature,
                 model_kwargs={"response_format": {"type": "json_object"}},
                 max_retries=0,  # we handle retries ourselves
+                **extra,
             )
         raise ValueError(f"Unknown LLM backend: {self.cfg.backend!r} (use 'groq' or 'ollama')")
 
@@ -145,5 +151,8 @@ class LangChainLLM:
         raise RuntimeError(f"LLM call failed after {self.cfg.max_retries} attempts: {last}")
 
 
-def build_llm(cfg: LLMConfig) -> LLMClient:
+def build_llm(cfg: LLMConfig, triage: bool = False) -> LLMClient:
+    """Analysis client by default; ``triage=True`` gives the (cheaper) triage model on Groq."""
+    if triage and cfg.backend == "groq" and cfg.groq_triage_model:
+        return LangChainLLM(cfg, model=cfg.groq_triage_model)
     return LangChainLLM(cfg)

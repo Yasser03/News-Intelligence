@@ -109,8 +109,10 @@ def _to_float(v: Any, default: float = 0.0) -> float:
 
 
 class IncidentAnalyzer:
-    def __init__(self, llm: LLMClient, cfg: LLMConfig, cache: Optional[JsonCache] = None):
+    def __init__(self, llm: LLMClient, cfg: LLMConfig, cache: Optional[JsonCache] = None,
+                 triage_llm: Optional[LLMClient] = None):
         self.llm = llm
+        self.triage_llm = triage_llm or llm
         self.cfg = cfg
         self.cache = cache
         self.errors: List[str] = []
@@ -121,7 +123,7 @@ class IncidentAnalyzer:
         for i, a in enumerate(batch, start=1):
             lines.append(f"[{i}] {a.title.strip()} — {a.snippet(300)}")
         prompt = TRIAGE_PROMPT.format(items="\n".join(lines))
-        data = parse_json(self.llm.complete(prompt))
+        data = parse_json(self.triage_llm.complete(prompt))
         rows = data.get("results", data) if isinstance(data, dict) else data
         out: Dict[int, TriageResult] = {}
         for r in rows if isinstance(rows, list) else []:
@@ -148,7 +150,7 @@ class IncidentAnalyzer:
         results: Dict[str, TriageResult] = {}
         todo: List[Article] = []
         for a in articles:
-            key = _cache_key("triage", self.llm.model_name, a.url, a.title)
+            key = _cache_key("triage", self.triage_llm.model_name, a.url, a.title)
             cached = self.cache.get(key) if self.cache else None
             if cached:
                 results[a.url] = TriageResult(**cached)
@@ -174,7 +176,7 @@ class IncidentAnalyzer:
                         continue  # unlabeled -> retried next run (not cached)
                     results[a.url] = tr
                     if self.cache:
-                        self.cache.put(_cache_key("triage", self.llm.model_name, a.url, a.title), tr.model_dump())
+                        self.cache.put(_cache_key("triage", self.triage_llm.model_name, a.url, a.title), tr.model_dump())
                 done += len(batch)
                 if progress:
                     progress(done, len(todo))

@@ -50,14 +50,18 @@ PERIODS = ["1h", "6h", "12h", "1d", "2d", "7d"]
 @dataclass
 class LLMConfig:
     backend: str = field(default_factory=lambda: os.getenv("RADAR_LLM_BACKEND", "groq"))  # groq | ollama
-    groq_model: str = field(default_factory=lambda: os.getenv("RADAR_GROQ_MODEL", "llama-3.3-70b-versatile"))
+    groq_model: str = field(default_factory=lambda: os.getenv("RADAR_GROQ_MODEL", "openai/gpt-oss-120b"))
+    # Triage uses a separate (smaller) model: Groq rate limits are per model, so this doubles throughput.
+    groq_triage_model: str = field(default_factory=lambda: os.getenv("RADAR_GROQ_TRIAGE_MODEL", "openai/gpt-oss-20b"))
+    # gpt-oss reasoning tokens count against the TPM limit; "low" keeps scans fast on the free tier.
+    reasoning_effort: str = field(default_factory=lambda: os.getenv("RADAR_REASONING_EFFORT", "low"))
     ollama_model: str = field(default_factory=lambda: os.getenv("RADAR_OLLAMA_MODEL", "qwen2.5:7b-instruct"))
     ollama_base_url: Optional[str] = field(default_factory=lambda: os.getenv("OLLAMA_BASE_URL"))
     temperature: float = 0.1
     workers: int = 4
-    tpm_limit: int = field(default_factory=lambda: int(os.getenv("RADAR_TPM_LIMIT", "12000")))
+    tpm_limit: int = field(default_factory=lambda: int(os.getenv("RADAR_TPM_LIMIT", "8000")))
     triage_batch_size: int = 15
-    max_chars: int = 3000          # article text sent to the analysis prompt
+    max_chars: int = 2000          # article text sent to the analysis prompt
     max_retries: int = 5
 
     @property
