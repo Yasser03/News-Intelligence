@@ -1,0 +1,5 @@
+# Optional custom sources for the radar (one home/section page per line).
+# The global Google News sweep works without this file.
+https://www.aljazeera.com/news/
+https://www.theguardian.com/world
+https://apnews.com/world-news

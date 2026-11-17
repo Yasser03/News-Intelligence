@@ -16,3 +16,6 @@ venv/
 *.egg-info/
 dist/
 build/
+data/*.db
+data/*.db-*
+.pytest_cache/

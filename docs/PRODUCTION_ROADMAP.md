@@ -1,5 +1,19 @@
 # News Intelligence — Production Roadmap
 
+> **Status update (v2.0 — OSINT News Radar):** the project has been rebuilt as an LLM-only radar.
+> The ML classifier is gone. Discovery now uses **pipescraper** (a global Google News sweep, with
+> optional custom sources). Classification, categorisation and summarisation are done by the LLM.
+> The v2 code already covers most of Phase 0 and part of Phase 1:
+> - installable package and typed models
+> - structured LLM output with taxonomy normalisation
+> - thread-safe rate limiting and caching
+> - SQLite persistence and incremental scans
+> - CLI, Dockerfile, CI and offline tests
+>
+> §2 below describes the **v1** code and is kept for history. In §4, read
+> "classifier" as "LLM triage". The ML-specific Phase 3 items become LLM evaluation, prompt
+> versioning and cost tracking.
+
 ## 1. What this project is for
 
 **News Intelligence is an OSINT incident-monitoring tool.** It watches a list of news
