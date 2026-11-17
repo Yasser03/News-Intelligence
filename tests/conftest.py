@@ -71,13 +71,14 @@ PAGES = {
     "https://news.example/market-rally": ("Stocks rally as tech earnings beat forecasts", "Markets up"),
     "https://news.example/shooting": ("Shooting leaves two wounded downtown", "Police said"),
     "https://news.example/broken": None,  # extraction fails
+    "https://news.example/empty-page": ("Live updates", ""),  # too little text -> dropped
 }
 
 
 def fake_google(country, period, n, query):
     if country == "XX":
         raise ConnectionError("edition unavailable")
-    urls = list(PAGES)
+    urls = list(PAGES) + ["https://www.facebook.com/somepage/posts/123"]
     if country == "GB":
         urls.append("https://news.google.com/rss/articles/CBMiundecodable")
         urls = [u + "?utm_source=gn" for u in urls]  # tracking params must dedupe away
@@ -88,18 +89,24 @@ def fake_links(url, n, respect_robots):
     return ["https://custom.example/flood-warning-river-burst"]
 
 
+LONG = " Officials gave details at the scene." * 10
+
+
 def fake_extract(urls, workers, timeout):
     out = []
     for u in urls:
         base = u.split("?")[0]
         if base == "https://custom.example/flood-warning-river-burst":
-            out.append(SimpleNamespace(url=base, title="Flood: river bursts banks in Sylhet", text="Flooding...",
+            out.append(SimpleNamespace(url=base, title="Flood: river bursts banks in Sylhet", text="Flooding..." + LONG,
                                        description="", source="Custom", author="", date_published="2026-11-17",
                                        time_published="08:00:00", language="en"))
             continue
         page = PAGES.get(base)
-        if page:
-            out.append(SimpleNamespace(url=base, title=page[0], text=page[1], description="", source="Example",
+        if base.endswith("empty-page"):
+            out.append(SimpleNamespace(url=base, title="Live updates", text="", description="", source="Example",
+                                       author="", date_published="", time_published="", language="en"))
+        elif page:
+            out.append(SimpleNamespace(url=base, title=page[0], text=page[1] + LONG, description="", source="Example",
                                        author="", date_published="2026-11-17", time_published="", language="en"))
     return out
 

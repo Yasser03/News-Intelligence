@@ -154,7 +154,7 @@ class NewsDiscovery:
             if "news.google.com/" in key:  # Google redirect that could not be decoded = unusable
                 self.stats.urls_undecoded += 1
                 continue
-            if key in seen:
+            if key in seen or not is_news_url(url):
                 continue
             seen.add(key)
             unique.append((url, via))
@@ -190,18 +190,32 @@ class NewsDiscovery:
         return articles
 
 
+# Links to these sites are posts/consent walls, not news articles.
+_NON_NEWS_DOMAINS = ("facebook.com", "fb.com", "x.com", "twitter.com", "instagram.com", "tiktok.com",
+                     "youtube.com", "youtu.be", "linkedin.com", "reddit.com", "t.me", "whatsapp.com")
+MIN_TEXT_CHARS = 200
+
+
+def is_news_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower().split(":")[0]
+    return not any(host == d or host.endswith("." + d) for d in _NON_NEWS_DOMAINS)
+
+
 def _to_article(s: Any) -> Optional[Article]:
     """Convert a pipescraper ScrapedArticle (or dict) to our Article model."""
     get = (lambda k: s.get(k, "")) if isinstance(s, dict) else (lambda k: getattr(s, k, "") or "")
     title, text = str(get("title") or "").strip(), str(get("text") or "").strip()
-    if not get("url") or (not title and not text):
+    description = str(get("description") or "").strip()
+    if not get("url") or not title or not is_news_url(str(get("url"))):
+        return None
+    if len(text) < MIN_TEXT_CHARS and len(description) < 80:  # empty page, paywall or consent wall
         return None
     date, time_ = str(get("date_published") or ""), str(get("time_published") or "")
     return Article(
         url=str(get("url")),
         title=title,
         text=text,
-        description=str(get("description") or "").strip(),
+        description=description,
         source=str(get("source") or urlparse(str(get("url"))).netloc),
         author=str(get("author") or ""),
         published=f"{date} {time_}".strip() if date else "",

@@ -19,6 +19,7 @@ def test_discovery_dedupes_and_survives_failures(cfg):
     bases = [u.split("?")[0] for u, _ in urls]
     assert len(bases) == len(set(bases))                      # tracking-param duplicates removed
     assert not any("news.google.com" in u for u in bases)     # undecoded redirects dropped
+    assert not any("facebook.com" in u for u in bases)        # social links dropped
     assert "https://custom.example/flood-warning-river-burst" in bases  # optional source used
     assert disc.stats.failed_tasks == 1 and disc.stats.urls_undecoded == 1
 
@@ -26,6 +27,7 @@ def test_discovery_dedupes_and_survives_failures(cfg):
     titles = [a.title for a in arts]
     assert sum("Gas explosion" in t for t in titles) == 1     # cross-outlet duplicate removed
     assert all(a.discovered_via for a in arts)
+    assert "Live updates" not in titles                       # near-empty page dropped
 
 
 def test_full_scan_end_to_end(cfg):
