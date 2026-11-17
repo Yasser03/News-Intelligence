@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osint-news-radar"
+version = "2.0.0"
+description = "OSINT News Radar: worldwide news scanning with LLM incident triage, categorisation, summaries and mapping"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Dr. Yasser Mustafa" }]
+dependencies = [
+    "pipescraper>=0.3.0",
+    "gnews>=0.3.7",
+    "newspaper4k>=0.9.3",
+    "pydantic>=2.5",
+    "pandas>=2.0",
+    "python-dotenv>=1.0",
+    "langchain-core>=0.3",
+    "langchain-groq>=0.2",
+    "langchain-ollama>=0.2",
+    "geonamescache>=2.0",
+    "geopy>=2.4",
+    "folium>=0.17",
+    "streamlit>=1.50",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+news-radar = "news_radar.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.ruff]
+line-length = 135
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]

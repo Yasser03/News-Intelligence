@@ -1,143 +1,199 @@
-# News Intelligence ⚡
+# 📡 OSINT News Radar
 
-**Scalable News Analysis & Incident Visualizer**
+**Worldwide news → LLM incident triage → categories & sub-categories → summaries on a live map.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)](https://streamlit.io/)
-[![LangChain](https://img.shields.io/badge/Agent-LangChain-green.svg)](https://langchain.com/)
+[![Scraping: pipescraper](https://img.shields.io/badge/scraping-pipescraper-orange.svg)](https://github.com/Yasser03/pipescraper)
+[![LLM: Groq / Ollama](https://img.shields.io/badge/LLM-Groq%20%7C%20Ollama-green.svg)](https://console.groq.com/)
+[![UI: Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)](https://streamlit.io/)
 
-News Intelligence is a highly scalable hybrid AI system combining vectorized ML for high-throughput stream filtering and LLM reasoning (Groq/Ollama) for contextual analysis. It auto-discovers RSS feeds, extracts structured event insights, geocodes addresses automatically, and renders interactive maps for real-time security intelligence.
+News Radar scans news from around the world. You don't need a list of sources, though you can
+add your own. An LLM decides which articles report a real security or safety **incident**, sorts
+each incident into a **category and sub-category**, rates its severity, finds where it happened,
+writes a short factual summary, and puts it on an interactive map.
 
-```python
-# Fast batch classification is fully vectorized
-from src.news_binary_classifier import NewsBinaryClassifier
+There is no ML classifier and no training data. The LLM does all the classification.
 
-classifier = NewsBinaryClassifier(model_path='models/')
-df_classified = classifier.predict(news_df)
-# df_classified['prediction'] contains 'incident' or 'non-incident'
+```
+              ┌───────────── pipescraper ─────────────┐
+ Google News  │ FetchGoogleNews  (country × query)     │
+ editions ────┤ FetchLinks       (optional sources)    ├─► dedupe ─► LLM triage ─► LLM analysis ─► geocode ─► SQLite ─► map / API / exports
+ worldwide    │ ExtractArticles  (full text + time)    │   (URL +    Incident /    category,       gazetteer,
+              └────────────────────────────────────────┘    title)    Non-Incident  sub-category,   Nominatim,
+                                                                      (batched)     severity,       LLM estimate
+                                                                                    location,
+                                                                                    summary
 ```
 
 ---
 
-## 🌟 Why News Intelligence?
+## Features
 
-### **Hybrid Architecture**
-- ⚡ **ML Engine**: Logistic Regression for high-throughput, low-latency filtering (processes 10,000+ items quickly).
-- 🧠 **LLM Brain**: Deep reasoning (Groq/Ollama) generates structured impact analysis and contextual summaries for filtered incidents only.
-
-### **Key Features**
-- 🔗 **RSS/Atom Feed Discovery** - Auto-discovers and scrapes relevant news articles in parallel via Trafilatura.
-- 🗺️ **Geospatial View** - Automatic address/site extraction with geocoding with Folium interactive maps.
-- 🔒 **Parallel Processing** - Multi-threaded scraping and LLM invocation for rapid datasets updates.
-- 🐼 **LLM Caching** - Built-in LRU cache for LLM queries saves tokens and boosts pipeline speed.
-- 🛡️ **Multi-backend Support** - Run completely free with Ollama (local) or scale via Groq (cloud) APIs.
+- **Global by default.** pipescraper's `FetchGoogleNews` sweeps many Google News country editions
+  with incident-focused search terms. You can narrow the radar with a *focus* keyword such as
+  `Sahel` or `Red Sea`.
+- **Optional custom sources.** Add home or section pages (as text or CSV). `FetchLinks` finds the
+  article links on them, and `ExtractArticles` pulls the full text, publish date and time.
+- **LLM step 1: triage.** Headlines go to the LLM in batches, and each one is labelled
+  *Incident* or *Non-Incident* with a confidence score. Batching keeps cost and token use low.
+- **LLM step 2: analysis.** For each incident, one JSON call returns the category, sub-category,
+  severity, a neutral headline, a 3–5 sentence summary, the event date, the location (country,
+  region, city, place), casualties and the actors involved.
+- **Fixed taxonomy.** Every label is mapped back onto [the taxonomy](#incident-taxonomy), so the
+  map never shows free-text categories.
+- **Geocoding.** An offline GeoNames gazetteer is tried first. Nominatim can be added for street
+  or landmark level, and is cached and rate-limited. If neither finds the place, the LLM's
+  coordinate estimate is used, then the country capital. Every point records how precise it is.
+- **Memory between scans.** SQLite stores incidents, the URLs already processed and the LLM
+  responses. Re-running a scan only processes new articles and never pays twice for the same one.
+- **Outputs.**
+  - Streamlit dashboard: map, filters, incident feed and history.
+  - CLI for cron jobs.
+  - Exports to CSV, JSON and **GeoJSON**.
+- **Robust.** One failed source, LLM call or geocode never stops a scan. Errors are collected
+  and shown in the results.
 
 ---
 
-## 🚀 Quick Start
-
-### 1. Installation
+## Quick start
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
-
-### 2. Environment Configuration
-To use the Groq cloud backend, create a `.env` file in the root directory and add your API key:
-
-```env
-GROQ_API_KEY="your_api_key_here"
-```
-
-You can generate a new Groq API key from the [Groq Console](https://console.groq.com/keys).
-
-### 3. Model Setup
-Ensure your trained model weights exist in the `models/` directory:
-- `Logistic Regression_62k.pkl`
-- `label_encoder_transformer.pkl`
-- `word_vectorizer.pkl`
-
-### 4. Launch the Dashboard
-Run the main Streamlit application:
 
 ```bash
-python -m streamlit run src/news_intelligence.py
+cp .env.example .env
+```
+
+Then set `GROQ_API_KEY` in `.env`, or set `RADAR_LLM_BACKEND=ollama` to use a local model.
+You can get a Groq key from the [Groq Console](https://console.groq.com/keys).
+
+### Dashboard
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Press **Run scan**. The default settings scan 10 Google News editions over the last 24 hours with
+12 incident queries.
+
+### Command line
+
+```bash
+news-radar scan --period 6h --countries world --out incidents.geojson --map radar.html
+```
+
+Focus on one region, include your own sources too, and use a local LLM:
+
+```bash
+news-radar scan --focus "Red Sea" --sources data/sources.example.txt --backend ollama --model qwen2.5:7b-instruct
+```
+
+`python -m news_radar scan …` works the same way. Run `news-radar scan --help` to see every option.
+
+### Docker
+
+```bash
+docker build -t news-radar .
+```
+
+```bash
+docker run -p 8501:8501 --env-file .env -v "$PWD/data:/app/data" news-radar
 ```
 
 ---
 
-## 📚 Core Components
+## Incident taxonomy
 
-### 1. News Binary Classifier
-The `src/news_binary_classifier.py` provides optimized text vectorization for separating relevant incidents from general news headlines.
+| Category | Sub-categories |
+|---|---|
+| Armed Conflict | Armed Clash · Airstrike / Drone Strike · Shelling / Artillery · Military Operation · Ceasefire Violation |
+| Terrorism | Bombing / IED · Suicide Attack · Armed Assault · Vehicle Ramming · Hostage Taking · Terror Plot / Arrest |
+| Violent Crime | Shooting · Stabbing · Homicide · Assault · Sexual Violence · Armed Robbery · Kidnapping |
+| Organized & Property Crime | Drug Trafficking · Human Trafficking · Smuggling · Gang Violence · Arson · Burglary / Theft · Fraud / Financial Crime |
+| Civil Unrest | Protest · Riot · Strike / Labor Action · Political Violence · Coup / Unconstitutional Change |
+| Transport Accident | Road Accident · Rail Accident · Aviation Incident · Maritime Incident · Piracy / Maritime Security |
+| Natural Disaster | Earthquake · Flood · Storm / Cyclone · Wildfire · Landslide · Volcanic Activity · Tsunami · Extreme Heat / Drought |
+| Industrial & Infrastructure | Explosion · Structure Fire · Building Collapse · Hazmat / Chemical Leak · Power Outage · Infrastructure Failure |
+| Health Emergency | Disease Outbreak · Mass Poisoning · Food Contamination |
+| Cyber Incident | Cyberattack · Ransomware · Data Breach · Service Disruption |
 
-| Method | Speed | Richness | Use Case |
-|---|---|---|---|
-| `predict(df)` | Fast | High | Balance of accuracy and throughput (Title + Desc) |
-| `predict_from_headlines(df)` | 🚀 Fastest | Med | Speed is critical (Title only) |
-| `predict_with_probability(df)` | Fast | High | Thresholding by confidence |
+**Severity levels:**
+- **Critical:** mass casualties or national-level impact
+- **High:** fatalities or serious regional disruption
+- **Medium:** injuries or localized disruption
+- **Low:** minor, no casualties
 
-**Usage snippet:**
+To change the taxonomy, edit `src/news_radar/taxonomy.py`. The prompts, normalisation and map
+colours all read from it.
+
+---
+
+## Using it as a library
+
 ```python
-from src.news_binary_classifier import classify_news_batch
+from news_radar import ScanConfig
+from news_radar.pipeline import RadarPipeline
+from news_radar.mapview import build_map
 
-# Returns DataFrame with 'prediction' column
-results = classify_news_batch(
-    df, 
-    model_path='models/', 
-    use_headlines_only=False
-)
+cfg = ScanConfig(period="12h", focus="Nigeria")
+result = RadarPipeline(cfg).run()
+
+for inc in result.incidents:
+    print(inc.severity, inc.category, ">", inc.subcategory, "|", inc.location.label(), "|", inc.headline)
+
+build_map(result.incidents).save("radar.html")
 ```
 
-### 2. Incident Analyzer (LLM Pipeline)
-Once filtered, articles pass into an LLM analysis chain that parses structured insights back in a single inference call:
-- **Incident Type**: Criminality, drugs, protest, bombing, maritime, etc.
-- **Impact Level**: `High` (fatalities), `Medium` (injuries), `Low` (minor).
-- **Locations**: Extracts country, city, address/landmark automatically.
-- **Summary**: Concise five-sentence factual reporting.
+## Project layout
 
-### 3. Geospatial Visualizer
-Locations extracted are run through `Nominatim` rates-limited geocoding services to populate interactive Map Circles using `folium` right in the dashboard view.
+```
+src/news_radar/
+  config.py      settings (env / .env), default editions and incident queries
+  discovery.py   pipescraper: FetchGoogleNews, FetchLinks, ExtractArticles + dedupe
+  llm.py         Groq / Ollama client (JSON mode), token budget, retries, JSON repair
+  analyzer.py    LLM triage (batched) and per-incident analysis prompts
+  taxonomy.py    categories, sub-categories, severity, colours, normalisation
+  geo.py         offline gazetteer, Nominatim (optional), fallbacks
+  store.py       SQLite: incidents, seen URLs, LLM cache, geocode cache
+  pipeline.py    end-to-end scan orchestration
+  mapview.py     Folium map, popups, GeoJSON export
+  cli.py         `news-radar scan`
+  app.py         Streamlit dashboard
+tests/           offline tests: fake LLM + fake pipescraper fetchers
+```
 
----
+## Development
 
-## 🔥 Performance & Scaling
+```bash
+pip install -e ".[dev]"
+```
 
-- **Speed**: TQDM overhead was removed intentionally for vectorized text cleanup.
-- **Rate-Limiting**: Parallel processing uses safe fallback wrappers supporting rate limits for cloud API vendors perfectly.
-- **Token Efficiency**: Cached responses based on hash strings speed up re-scraping the same article titles drastically.
+```bash
+pytest -q
+```
 
----
+```bash
+ruff check src tests
+```
 
-## 🎓 Learning Resources
-- Check out `News_Intelligence_Notebook.ipynb` for step-by-step pipeline creation.
-- Check `SKILL.md` for fast recipes setup workflow code.
+The tests run fully offline: the LLM and the pipescraper network calls are replaced by fakes.
 
----
+## Notes & limits
 
-## 🤝 Contributing
-Issues and feature suggestions are highly welcomed.
+- **Language:** pipescraper's Google News fetcher queries English editions. Custom sources can be
+  in any language, and the LLM writes its output in English.
+- **Google News:** pipescraper needs the `gnews` package for this, and it is installed with the
+  project. Google sometimes changes its redirect format. URLs that can't be decoded are dropped
+  and counted under `urls_undecoded` in the scan stats.
+- **Nominatim:** this is the public OpenStreetMap geocoder. It is limited to 1 request per second
+  and needs a User-Agent that identifies you (`RADAR_GEOCODER_UA`). For heavy use, host your own
+  instance or use a paid geocoder.
+- **Accuracy:** LLM output can be wrong, so check incidents before acting on them. Points marked
+  `llm-estimate` or `country` are approximate, and are drawn with dashed outlines on the map.
 
----
+See [`docs/PRODUCTION_ROADMAP.md`](docs/PRODUCTION_ROADMAP.md) for the path to a production service.
 
-## 📜 License
-MIT License.
+## License
 
----
-
-## 👨‍💻 Author
-**Dr. Yasser Mustafa**
-
-*AI & Data Science Specialist | Theoretical Physics PhD*
-
-- 🎓 PhD in Theoretical Nuclear Physics
-- 💼 10+ years in production AI/ML systems
-- 📍 Based in Newcastle Upon Tyne, UK
-- ✉️ yasser.mustafan@gmail.com
-- 🔗 [LinkedIn](https://www.linkedin.com/in/yasser-mustafa) | [GitHub](https://github.com/ymustafa)
-
----
-
-**Built with ❤️ for rapid threat intelligence situational awareness**
-
----
+MIT. Author: **Dr. Yasser Mustafa**.
